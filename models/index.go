@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/jinzhu/gorm"
+	"cotton/models/rbac"
 )
 
 
@@ -18,7 +19,13 @@ func NewMySQL() *gorm.DB{
 	if DB != nil {
 		DB.Close()
 	}
-	db.AutoMigrate(&Account{})
 	DB = db
+	db.AutoMigrate(&Account{})
+
+	// 用户组-n-> 用户
+	db.Model(&rbac.UsernameGroup{}).Related(&Account{})
+	db.Model(&rbac.UsernameGroup{}).Related(&rbac.Role{})
+	db.Model(&rbac.Role{}).Related(&Account{})
 	return db
 }
+
