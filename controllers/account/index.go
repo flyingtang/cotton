@@ -9,11 +9,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"github.com/dgrijalva/jwt-go"
+	"strconv"
+	"cotton/models/account"
+	"net/http"
 )
 
 
 const minLength = 6 // 用户名和密码的最小长度
-const hmacSampleSecret = "this is my cotton"
+const HmacSampleSecret = "this is my cotton"
 
 var ReturnFailed, ReturnSucceed utils.ReturnFunc
 
@@ -51,7 +54,7 @@ func Login(c *gin.Context){
 		return
 	}
 
-	var user models.Account
+	var user account.Account
 	db := models.DB.Where("username=?", username).First(&user)
 	if db.Error != nil{
 
@@ -70,15 +73,28 @@ func Login(c *gin.Context){
 	// jwt-go 办法token
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userId": user.ID,
+		"username": user.Username,
+		"nickname": user.Nickname,
 	})
-	tokenString, err := t.SignedString([]byte(hmacSampleSecret))
+	tokenString, err := t.SignedString([]byte(HmacSampleSecret))
 	if err != nil {
 		ReturnFailed(c, "t.SignedString", gin.H{ "error": err, "message" :"登录失败",})
 		return
 	}
 
+	setCookieForLogin(c, &user, tokenString)
 	ReturnSucceed(c, "models.DB.Create", gin.H{"message" :"登陆成功", "token": tokenString})
 	return
+}
+
+// set cookie
+func setCookieForLogin(c *gin.Context, user *account.Account, tokenString string){
+	const authKeyWord = "Authentication"
+	// 将token 存入cookie
+	c.SetCookie(authKeyWord, tokenString, 86400, "/", "", false, true)
+	c.SetCookie("userId", strconv.FormatInt(int64(user.ID), 10), 86400, "/", "", false, false)
+	c.SetCookie("username", user.Username, 86400, "/", "", false, false)
+	c.SetCookie("nickname",user.Nickname, 86400, "/", "", false, false)
 }
 
 
@@ -92,7 +108,7 @@ func SignUp(c *gin.Context){
 		return
 	}
 
-	data := models.Account{
+	data := account.Account{
 		Username: strings.TrimSpace(af.Username),
 		Password: strings.TrimSpace(af.Password),
 		Nickname: strings.TrimSpace(af.Nickname),
@@ -122,6 +138,26 @@ func SignUp(c *gin.Context){
 	}
 
 	ReturnSucceed(c, "models.DB.Create", gin.H{"message" :"注册成功",})
+	return
+}
+
+
+func GetAccounts(c *gin.Context){
+
+	skip := c.Query("skip")
+	var skipNum int64= 0
+	if len(skip) > 0 {
+		if sm, err := strconv.ParseInt(skip, 10 , 64); err == nil {
+			skipNum = sm
+		}
+
+	}
+	accounts, total := account.Find(skipNum,nil)
+	//countAccount := account.Count(nil)
+	c.JSON(http.StatusOK, gin.H{
+		"total": total,
+		"data": accounts,
+	})
 	return
 }
 

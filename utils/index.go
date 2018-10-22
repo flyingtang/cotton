@@ -14,7 +14,7 @@ func ReturnFailed(model string) ReturnFunc {
 	return func(c *gin.Context, action string, h gin.H){
 
 		logrus.WithFields(logrus.Fields{"model ": model, "action " : action,}).Error(h["error"])
-		c.JSON(http.StatusBadRequest, gin.H{"message" : h["message"], })
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message" : h["message"], })
 		return
 	}
 }
@@ -23,7 +23,6 @@ func ReturnFailed(model string) ReturnFunc {
 func ReturnSuccess(model string) ReturnFunc {
 
 	return func(c *gin.Context, action string, h gin.H){
-
 		logrus.WithFields(logrus.Fields{"model ": model, "action " : action,}).Debug(h["message"])
 		c.JSON(http.StatusOK, h)
 		return
